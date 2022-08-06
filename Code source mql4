@@ -713,9 +713,11 @@ bool CPositionSizeCalculator::screenAction(int i,string h)
 
 bool CPositionSizeCalculator::change(int lp,int dp,string sp)
   {
-  color c=clrDeepSkyBlue;
-  m1.Color(Black);m5.Color(Black);m15.Color(Black);h1.Color(Black);h4.Color(Black);d.Color(Black);w.Color(Black);m.Color(Black);
-  pointerColor=new CLabel;
+     if(StringFind(sp,"tf",0)!=-1)
+     {
+         color c=clrRed;
+         m1.Color(Black);m5.Color(Black);m15.Color(Black);h1.Color(Black);h4.Color(Black);d.Color(Black);w.Color(Black);m.Color(Black);
+     
    if(StringFind(sp,"tf",0)!=-1)
      {
       int chiffre=0;
@@ -723,11 +725,8 @@ bool CPositionSizeCalculator::change(int lp,int dp,string sp)
 
       if(tf=="m1")
         {
-       
-         chiffre=1; 
-         
-         m1.Color(c);
-         
+         chiffre=1;        
+         m1.Color(c);        
          ChartSetSymbolPeriod(0,_Symbol,chiffre);
         }
       else if(tf=="m5")
@@ -778,6 +777,7 @@ bool CPositionSizeCalculator::change(int lp,int dp,string sp)
                               chiffre=43200;
                               ChartSetSymbolPeriod(0,_Symbol,chiffre);
                              }
+            }
      }
      
      
