@@ -1,0 +1,938 @@
+//+------------------------------------------------------------------+
+//|                                           PanelTradeScalping.mq4 |
+//|                        Copyright 2022, MetaQuotes Software Corp. |
+//|                                             https://www.mql5.com |
+//+------------------------------------------------------------------+
+#property copyright "Copyright 2022, MetaQuotes Software Corp."
+#property link      "https://www.mql5.com"
+#property version   "1.00"
+#property strict
+#include <Controls\Button.mqh>
+#include <Controls\BmpButton.mqh>
+#include <Controls\Dialog.mqh>
+#include <Controls\CheckBox.mqh>
+#include <Controls\Label.mqh>
+#include <Controls\Defines.mqh>
+#include <Arrays\List.mqh>
+#resource  "\\Include\\Controls\\res\\Close.bmp"
+#resource  "\\Include\\Controls\\res\\RadioButtonOff.bmp"
+#resource  "\\Include\\Controls\\res\\RadioButtonOn.bmp"
+#include <Controls\ComboBox.mqh>
+#include <Controls\Edit.mqh>
+
+//+------------------------------------------------------------------+
+//|                                                                  |
+//+------------------------------------------------------------------+
+class CPositionSizeCalculator : public CAppDialog
+  {
+private:
+
+   
+   CButton                     buy,sell,close,btresize,volMoins,volPlus,beplus,bemoins,closeAll;                
+   CLabel                      spread,profitDaily,profitTotal,test,result,nbvol,label_be,m1,m5,m15,h1,h4,d,w,m;                
+    
+   double                      arrayColor[][1];                   
+   CBmpButton                  *btnClose[];
+   CButton                     *btnBE[];
+   CLabel                      *labelBe[],*labelPrice[],*labelSymbol[];
+
+
+
+public:
+                     CPositionSizeCalculator() {};
+                    ~CPositionSizeCalculator() {};
+   CLabel labelvol;
+   virtual void      Destroy();
+   virtual void      OnTick(void);
+   virtual void      OnTrade(void);
+   virtual void      OnTimer(void);
+   virtual bool      Create(const long chart, const string name, const int subwin, const int x1, const int y1);
+   virtual bool      OnEvent(const int id, const long& lparam, const double& dparam, const string& sparam);
+   virtual double    getClosedPnlOfDay(const int indexDay);
+   virtual double    getPnlTotal();
+   virtual string    getTradeResult();
+   virtual bool      setAffichageTrade();
+   virtual void      RefreshValues();
+   virtual void      deleteAllrow();
+   virtual void      deleteRow(int i);
+   double            vol_min_symbol,vol_one,vol_two,be,Spread[];
+   string                      arraySymbol[];
+   CComboBox                   editSymbol; 
+private:
+
+   virtual bool      ButtonCreate(CButton&    Btn, int X1, int Y1, int X2, int Y2, string Name, string Text, string Tooltip = "\n");
+   virtual bool      ComboBoxCreate(CComboBox &Cbx, int X1, int Y1, int X2, int Y2, string Name, string Text, string Tooltip = "\n");
+   virtual bool      CheckBoxCreate(CCheckBox&  Chk, int X1, int Y1, int X2, int Y2, string Name, string Text, string Tooltip = "\n");
+   virtual bool      EditCreate(CEdit&      Edt, int X1, int Y1, int X2, int Y2, string Name, string Text, string Tooltip = "\n");
+   virtual bool      LabelCreate(CLabel&     Lbl, int X1, int Y1, int X2, int Y2, string Name, string Text, string Tooltip = "\n");
+   virtual bool      ButtonBpmCreate(CBmpButton &Bpm, int X1, int Y1, int X2, int Y2, string Name, string Text, string Tooltip = "\n",string BmpON="\\Include\\Controls\\res\\Close.bmp",string BmpOFF="",bool lock=true);
+   virtual bool      CreateObjects();
+   virtual bool      resizing();
+   virtual bool      BuyClick();                                     
+   virtual bool      SellClick();  
+   virtual bool      CloseAllClick();                                  
+   virtual bool      CloseClick();                                   
+   virtual void      getAllTrade(void);
+   virtual bool      change(int lp,int dp,string sp);
+   virtual bool      screenAction(int i,string h);
+   virtual void      OnChangeComboBox(int lpa);
+
+
+  };
+
+//+------------------------------------------------------------------+
+//| Create BMP Button                                                |
+//+------------------------------------------------------------------+
+bool CPositionSizeCalculator::ButtonBpmCreate(CBmpButton &Bpm, int X1, int Y1, int X2, int Y2, string Name, string Text, string Tooltip = "\n",string BmpON="\\Include\\Controls\\res\\Close.bmp",string BmpOFF="",bool lock=true)
+  {
+   if(!Bpm.Create(m_chart_id, m_name + Name, m_subwin, X1, Y1, X2, Y2))
+      return false;
+   if(!Add(Bpm))
+      return false;
+   if(!Bpm.Text(Text))
+      return false;
+   if(!Bpm.BmpOnName(BmpON))
+      return false;
+   Bpm.Locking(lock);
+   ObjectSetString(ChartID(), m_name + Name, OBJPROP_TOOLTIP, Tooltip); 
+   return true;
+  }
+//| Button |
+//+--------+
+bool CPositionSizeCalculator::ButtonCreate(CButton &Btn, int X1, int Y1, int X2, int Y2, string Name, string Text, string Tooltip = "\n")
+  {
+   if(!Btn.Create(m_chart_id, m_name + Name, m_subwin, X1, Y1, X2, Y2))
+      return false;
+   if(!Add(Btn))
+      return false;
+   if(!Btn.Text(Text))
+      return false;
+   ObjectSetString(ChartID(), m_name + Name, OBJPROP_TOOLTIP, Tooltip);
+   return true;
+  }
+//+----------+
+//| Checkbox |
+//+----------+
+bool CPositionSizeCalculator::CheckBoxCreate(CCheckBox &Chk, int X1, int Y1, int X2, int Y2, string Name, string Text, string Tooltip = "\n")
+  {
+   if(!Chk.Create(m_chart_id, m_name + Name, m_subwin, X1, Y1, X2, Y2))
+      return false;
+   if(!Add(Chk))
+      return false;
+   if(!Chk.Text(Text))
+      ObjectSetString(ChartID(), m_name + Name + "Label", OBJPROP_TOOLTIP, Tooltip);
+
+   return true;
+  }
+//+--------------+
+//| ComboChekbox |
+//+--------------+
+bool CPositionSizeCalculator::ComboBoxCreate(CComboBox &Cbx, int X1, int Y1, int X2, int Y2, string Name, string Text, string Tooltip = "\n")
+  {
+   if(!Cbx.Create(m_chart_id, m_name + Name, m_subwin, X1, Y1, X2, Y2))
+      return false;
+   if(!Add(Cbx))
+      return false;
+     
+      ObjectSetString(ChartID(), m_name + Name + "ComboBox", OBJPROP_TOOLTIP, Tooltip);
+
+   return true;
+  }
+//+------+
+//| Edit |
+//+------+
+bool CPositionSizeCalculator::EditCreate(CEdit &Edt, int X1, int Y1, int X2, int Y2, string Name, string Text, string Tooltip = "\n")
+  {
+   if(!Edt.Create(m_chart_id, m_name + Name, m_subwin, X1, Y1, X2, Y2))
+      return false;
+   if(!Add(Edt))
+      return false;
+   if(!Edt.Text(Text))
+      return false;
+   ObjectSetString(ChartID(), m_name + Name, OBJPROP_TOOLTIP, Tooltip);
+
+   return true;
+  }
+//+-------+
+//| Label |
+//+-------+
+bool CPositionSizeCalculator::LabelCreate(CLabel &Lbl, int X1, int Y1, int X2, int Y2, string Name, string Text, string Tooltip = "\n")
+  {
+
+   if(!Lbl.Create(m_chart_id, m_name + Name, m_subwin, X1, Y1, X2, Y2))
+      return false;
+   if(!Add(Lbl))
+      return false;
+   if(!Lbl.Text(Text))
+      return false;
+   ObjectSetString(ChartID(), m_name + Name, OBJPROP_TOOLTIP, Tooltip);
+
+   return true;
+  }
+//+-----------------------+
+//| Create a panel object |
+//+-----------------------+
+bool CPositionSizeCalculator::Create(const long chart, const string name, const int subwin, const int x1, const int y1)
+  {
+
+
+   int x2 = x1 + 420;
+   int y2 = y1 + 500;
+   if(!CAppDialog::Create(chart, name, subwin, x1, y1, x2, y2))
+      return false;
+   if(!CreateObjects())
+      return false;
+   Caption(name);
+
+   return true;
+  }
+
+//+---------------------------------+
+//| Create objects in The Panel     |
+//+---------------------------------+
+bool CPositionSizeCalculator::CreateObjects()
+  {
+//---------------Ajout du Label Spread---------------------------------------------------//
+   double spd="";
+   Digits==5 ?  spd = MarketInfo(_Symbol, MODE_SPREAD)/10 :  spd = MarketInfo(_Symbol, MODE_SPREAD)/100;
+   if(!LabelCreate(spread,20,20,80,50,"spread","Spread : "+spd))
+      return false;
+//---------------Ajout du Label profitDaily---------------------------------------------------//
+   string gain=DoubleToString(getClosedPnlOfDay(0),2);
+   getClosedPnlOfDay(0)>0 ? profitDaily.Color(Green) : profitDaily.Color(Red);
+   if(!LabelCreate(profitDaily,20,40,80,50,"profitDaily","Gain du jour : "+gain+" €"))
+      return false;   
+//---------------Ajout ComboBox liste de Symbol---------------------------------------------------//
+   if(!ComboBoxCreate(editSymbol,250,210,350,230,"editSymbol","",""))
+      return false; 
+  
+     
+      for(int i=0;i<ArraySize(arraySymbol);i++)
+      {
+        editSymbol.ItemAdd(arraySymbol[i],i);
+        
+      }
+      
+      editSymbol.Select(0);
+//---------------Ajout du Label Result---------------------------------------------------//
+   if(!LabelCreate(result,20,60,80,80,"result",getTradeResult()))
+      return false;
+//---------------Ajout du Label Profit Total---------------------------------------------------//
+   if(!LabelCreate(profitTotal,250,20,80,80,"profitTotal","",""))return false;
+   profitTotal.FontSize(18);
+//---------------Ajout du sell---------------------------------------------------//
+   if(!ButtonCreate(sell,20,100,140,200,"sell","SELL ",Bid))
+      return false;
+
+   sell.ColorBackground(clrPaleVioletRed);
+   sell.FontSize(12);
+//---------------Ajout du Close---------------------------------------------------//
+   if(!ButtonCreate(close,145,100,265,200,"close","CLOSE",""))
+      return false;
+ 
+   buy.ColorBackground(clrGray);
+//---------------Ajout du Button buy---------------------------------------------------//
+
+   if(!ButtonCreate(buy,270,100,390,200,"buy","BUY"))
+      return false;
+
+   buy.ColorBackground(clrPaleTurquoise);
+   buy.FontSize(12);   
+//---------------Ajout du Close All---------------------------------------------------//
+   if(!ButtonCreate(closeAll,190,25,230,45,"closeAll","All",""))return false;
+      
+   closeAll.ColorBackground(clrRed);
+//-----------------------Control pour la fonction Volume--------------//
+//------------------------------------------------------------------//
+//------------------------------------------------------------------//
+int x1=170,x2=190;
+
+   if(!ButtonCreate(volMoins,x1,75,x2,95,"volmoins","V-"))
+      return false;
+   if(!ButtonCreate(volPlus,x1+60,75,x2+60,95,"volplus","V+"))
+      return false;
+   if(!LabelCreate(labelvol,x1+25,75,x2+25,95,"volumelabel",NormalizeDouble(SymbolInfoDouble(_Symbol,SYMBOL_VOLUME_MIN),2)))
+      return false;
+    
+//---------------Label Changement Timeframe---------------------------------------------------//
+//------------------------------------------------------------------//
+//------------------------------------------------------------------//
+   int y=450;
+   if(!LabelCreate(m1,20,y,60,250,"tfm1","   M1   ",""))
+      return false;
+   if(!LabelCreate(m5,60,y,80,250,"tfm5","   M5   ",""))
+      return false; 
+   if(!LabelCreate(m15,100,y,100,250,"tfm15","   M15   ",""))
+      return false;
+   if(!LabelCreate(h1,140,y,120,250,"tfh1","   H1   ",""))
+      return false;
+   if(!LabelCreate(h4,180,y,160,250,"tfh4","   H4   ",""))
+      return false;
+   if(!LabelCreate(d,220,y,200,250,"tfd","   D   ",""))
+      return false; 
+   if(!LabelCreate(w,260,y,240,250,"tfw","   W   ",""))
+      return false;
+   if(!LabelCreate(m,300,y,280,250,"tfm","   M   ",""))
+      return false;
+  
+//---------------Label Quantité de Volume---------------------------------------------------//
+//------------------------------------------------------------------//
+//------------------------------------------------------------------//
+   if(!LabelCreate(nbvol,180,170,80,250,"nbvol","",""))
+      return false;
+ 
+   nbvol.FontSize(8);
+   ChartRedraw();
+   return true;
+  }
+//+------------------------------------------------------------------+
+//|                 Raffraichissement des données                  
+//|
+//+------------------------------------------------------------------+
+void CPositionSizeCalculator::RefreshValues()
+  {
+//---------------Label Spread---------------------------------------------------//
+   double spd=NULL;
+   Digits==5 ?  spd = MarketInfo(_Symbol, MODE_SPREAD)/10 :  spd = MarketInfo(_Symbol, MODE_SPREAD)/100;
+   spread.Text("Spread : "+DoubleToString(spd,2));
+   
+//---------------Label profitDaily---------------------------------------------------//
+   string gain=DoubleToString(getClosedPnlOfDay(0),2);
+   profitDaily.Text("Gain du jour : "+gain+" €");
+   getClosedPnlOfDay(0)>=0 ? profitDaily.Color(Green) : profitDaily.Color(Red);
+
+//---------------Label Result---------------------------------------------------//
+   result.Text(getTradeResult());
+          
+//---------------Label Profit total actuel---------------------------------------------------//
+   profitTotal.Text(DoubleToString(getPnlTotal(),2)+" €");
+   getPnlTotal()>=0 ? profitTotal.Color(Green) : profitTotal.Color(Red) ;
+ 
+//---------------Button close Afficher Profit par symbol------------//
+//------------------------------------------------------------------//
+
+   double profitSymbol=NULL;
+   double volSymbol=NULL;
+   if(OrdersTotal()>0)
+      for(int i=0; i<OrdersTotal(); i++)
+        {
+         OrderSelect(i,SELECT_BY_POS);
+         if(OrderSymbol()==_Symbol)
+            profitSymbol+=OrderProfit();
+         volSymbol+=OrderLots();
+        }
+
+   string txt=DoubleToString(profitSymbol,2)+" €";
+   if(profitSymbol!=NULL)
+     {
+      close.Text("CLOSE "+txt);
+      nbvol.Text("Lots : "+DoubleToStr(volSymbol,2));
+      close.FontSize(13);
+      profitSymbol>0 ? close.Color(Green) : close.Color(Red);
+      ChartRedraw();
+     }
+   else
+     {
+      close.Text("CLOSE ");
+      nbvol.Text("");
+      close.FontSize(10);
+      close.Color(clrBlack);
+      ChartRedraw();
+     }; 
+//---------------Refresh  label profit screen-----------------------//
+//------------------------------------------------------------------//
+   if(ArraySize(labelPrice)!=0)
+     {
+      for(int i=0; i<ArraySize(labelPrice); i++)
+        {
+         string h="";
+         OrderSelect(i,SELECT_BY_POS,MODE_TRADES);
+         labelPrice[i].Text(DoubleToString(OrderProfit(),2)+"  "+(h=OrderType()==0 ? h="Buy" : h="Sell")+"  "+OrderLots());ChartRedraw();
+         labelSymbol[i].Text(OrderSymbol());
+         OrderProfit()>=0 ? labelPrice[i].Color(Green) : labelPrice[i].Color(Red);
+        }     
+     }    
+     ChartRedraw();
+  }
+//+-------------------------------------------------------------------------------------------------+
+//|        On Timer                                                                                  |
+//+-------------------------------------------------------------------------------------------------+
+void CPositionSizeCalculator::OnTimer(void)
+  {
+  //Print("Current",editSymbol.m_list.m_current,"   ",
+  //       "Offset",editSymbol.m_list.m_offset,"   ",
+  //       "Totalview",editSymbol.m_view_items,"   ",
+  //       "id",editSymbol.m_list.m_rows[2].m_id,"   ",
+  //       "id",editSymbol.m_list.m_rows[2].m_name
+  //       );
+  
+    if(OrdersTotal()>0 )
+   {
+        for(int i=0;i<ArraySize(btnBE);i++)
+      {    
+         
+         OrderSelect(i,SELECT_BY_POS,MODE_TRADES);
+     
+         if(btnBE[i].ColorBackground()==clrYellow && ((((OrderOpenPrice()-Spread[i])<=OrderClosePrice())&&(OrderType()==ORDER_TYPE_BUY))||(((OrderOpenPrice()+Spread[i])>=OrderClosePrice())&&(OrderType()==ORDER_TYPE_SELL))))
+         {
+      
+            if(OrderModify(OrderTicket(),0,OrderOpenPrice(),0,0,clrNONE))
+            {
+               btnBE[i].ColorBackground(clrGreen);ChartRedraw();
+            }         
+         }  
+      }   
+   }
+  }  
+//+-------------------------------------------------------------------------------------------------+
+//|        On Tick                                                                                  |
+//+-------------------------------------------------------------------------------------------------+
+void CPositionSizeCalculator::OnTick(void)
+   {
+      RefreshValues(); 
+   }
+//+-----------------------+
+//| Destruction        |
+//+-----------------------+
+void CPositionSizeCalculator::Destroy()
+  {
+   for(int i=0; i<ArraySize(labelPrice); i++)
+     {
+      delete GetPointer(btnBE[i]);
+      delete GetPointer(btnClose[i]);
+      delete GetPointer(labelPrice[i]);
+      delete GetPointer(labelSymbol[i]);
+     }
+      m_chart.Detach();
+      
+// Call parent destroy.
+      CDialog::Destroy();
+  }
+
+//+------------------------------------------------------------------+
+//|          Fonction Gain du Jour                                   |                   
+//+------------------------------------------------------------------+
+
+double CPositionSizeCalculator::getClosedPnlOfDay(const int indexDay)
+  {
+      const datetime timeStart=iTime(_Symbol,PERIOD_D1,indexDay),
+                  timeEnd = timeStart+PeriodSeconds(PERIOD_D1);
+      double res=0.;
+      for(int i=OrdersHistoryTotal()-1; i>=0; i--)
+      {
+         OrderSelect(i,SELECT_BY_POS,MODE_HISTORY);
+         
+         if(OrderType()==ORDER_TYPE_BALANCE)continue;
+            
+
+         if(OrderCloseTime()<timeStart || OrderCloseTime()>=timeEnd)continue;
+         
+         res+=OrderProfit() + OrderCommission() + OrderSwap();
+      }
+
+  return res;
+  }
+
+//+------------------------------------------------------------------+
+//|          Fonction Gain actuel total                                   |                   
+//+------------------------------------------------------------------+
+double CPositionSizeCalculator::getPnlTotal()
+   {
+      double tr=0.;
+      for(int i=0; i<OrdersTotal(); i++)
+      {
+         OrderSelect(i,SELECT_BY_POS,MODE_TRADES);
+         
+         tr+=OrderProfit() + OrderCommission() + OrderSwap(); 
+      }
+      
+    return tr; 
+    }
+//+------------------------------------------------------------------+
+//|         Analyse Trade Panel G/N/P                                |
+//+------------------------------------------------------------------+
+
+string CPositionSizeCalculator::getTradeResult()
+   {
+      int gagnant=0;
+      int neutre=0;
+      int perdant=0;
+      const datetime timeStart=iTime(_Symbol,PERIOD_D1,0),
+      timeEnd = timeStart+PeriodSeconds(PERIOD_D1);
+      for(int i=0; i<OrdersHistoryTotal(); i++)
+      {
+         OrderSelect(i,SELECT_BY_POS,MODE_HISTORY);
+      
+         if(OrderCloseTime()<timeStart || OrderCloseTime()>=timeEnd)continue;
+         
+         if(OrderProfit()>0.1)
+         {
+            gagnant++;
+         }
+         else if(OrderProfit()<-0.1)
+         {
+            perdant++;
+         }
+         else
+         {
+            neutre++;
+         };
+
+      }
+      return "G:"+IntegerToString(gagnant)+"/N:"+IntegerToString(neutre)+"/P:"+IntegerToString(perdant);
+   }
+//+------------------------------------------------------------------+
+//|          Fonction Buy click                                      |
+//+------------------------------------------------------------------+
+
+bool CPositionSizeCalculator::BuyClick()
+   {
+      if(!OrderSend(_Symbol,OP_BUY,StringToDouble(labelvol.Text()),SymbolInfoDouble(_Symbol,SYMBOL_BID),0.2,0,0,NULL,0,0,clrNONE))
+      {
+         return false;
+      }
+      else
+      {  
+         return true;
+      }
+   }
+//+------------------------------------------------------------------+
+//|          Fonction Sell click                                     |
+//+------------------------------------------------------------------+
+
+bool CPositionSizeCalculator::SellClick()
+   {
+      if(!OrderSend(_Symbol,OP_SELL,StringToDouble(labelvol.Text()),SymbolInfoDouble(_Symbol,SYMBOL_ASK),0.2,0,0,NULL,0,0,clrNONE))
+      {
+         return false;
+      }
+      else
+      {
+         return true;
+      }
+   }
+
+//+------------------------------------------------------------------+
+//|          Fonction Close click                                    |
+//+------------------------------------------------------------------+
+
+bool CPositionSizeCalculator::CloseClick()
+   {
+      int total=OrdersTotal();
+
+      for(int i=total; i>=0; i--)
+      {
+         OrderSelect(i,SELECT_BY_POS,MODE_TRADES);
+
+         if(OrderSymbol()==_Symbol)
+         {
+            if(OrderClose(OrderTicket(),OrderLots(),OrderClosePrice(),0,clrNONE))
+            {
+               deleteRow(i);
+            }          
+         }
+      }
+   return true;
+   }
+//+------------------------------------------------------------------+
+//|          Fonction Close All click                                    |
+//+------------------------------------------------------------------+
+
+bool CPositionSizeCalculator::CloseAllClick()
+   {
+   int total=OrdersTotal();
+
+   for(int i=total; i>=0; i--)
+      {
+         OrderSelect(i,SELECT_BY_POS,MODE_TRADES);      
+         OrderClose(OrderTicket(),OrderLots(),OrderClosePrice(),0,clrNONE);             
+      }
+  return true;
+  } 
+//+------------------------------------------------------------------+
+//|         Affichage des trades en cours                            |
+//+------------------------------------------------------------------+
+
+bool CPositionSizeCalculator::setAffichageTrade()
+   {
+   
+      ArrayResize(btnBE,OrdersTotal());
+      ArrayResize(btnClose,OrdersTotal());
+      ArrayResize(labelSymbol,OrdersTotal());
+      ArrayResize(labelPrice,OrdersTotal());
+      ArrayResize(Spread,OrdersTotal());
+      ArrayResize(arrayColor,OrdersTotal());
+      
+      for(int i=0; i<OrdersTotal(); i++)
+      {
+         OrderSelect(i,SELECT_BY_POS,MODE_TRADES);
+      
+      
+         Spread[i]=MathAbs(SymbolInfoDouble(OrderSymbol(),SYMBOL_ASK)-SymbolInfoDouble(OrderSymbol(),SYMBOL_BID));
+         string h="";
+      
+      
+         btnClose[i]=new CBmpButton;
+         labelPrice[i]=new CLabel;
+         btnBE[i]=new CButton;
+         labelSymbol[i]=new CLabel;
+      
+      
+         if(!LabelCreate(labelPrice[i],20,203+30*i,90,220+30*i,"labelPrice"+IntegerToString(i),DoubleToString(OrderProfit(),2)+"  "+(h=OrderType()==0 ? h="Buy" : h="Sell")+"  "+OrderLots(),""))return false;        
+         labelPrice[i].Id(i);
+         
+         if(!LabelCreate(labelSymbol[i],115,203+30*i,135,220+30*i,i+"symb"+OrderSymbol(),OrderSymbol(),""))return false;         
+         labelSymbol[i].Id(i);  
+             
+         if(!ButtonCreate(btnBE[i],170,207+30*i,190,220+30*i,"btnbe"+i,"",""))return false;         
+         btnBE[i].Id(i);
+         
+         if(((OrderStopLoss()>=OrderOpenPrice())&&OrderType()==ORDER_TYPE_BUY)||((OrderStopLoss()>=OrderOpenPrice())&&OrderType()==ORDER_TYPE_SELL))
+            {
+               btnBE[i].ColorBackground(clrGreen);
+            }
+         else
+            {
+            btnBE[i].ColorBackground(Black);
+            };
+         
+         if(!ButtonBpmCreate(btnClose[i],220,204+30*i,230,220+30*i,"bmp"+i,"",""))return false;      
+         btnClose[i].Id(i);
+         OrderProfit()>=0 ? labelPrice[i].Color(Green) : labelPrice[i].Color(Red);     
+      };     
+   ChartRedraw();
+   return true;
+   }
+
+//+------------------------------------------------------------------+
+//|        Effacer tous les lignes                                   |
+//+------------------------------------------------------------------+
+void CPositionSizeCalculator::deleteAllrow()
+  {
+
+   for(int i=0; i<ArraySize(labelPrice); i++)
+     {
+      btnBE[i].Destroy();
+      btnClose[i].Destroy();
+      labelPrice[i].Destroy();
+      labelSymbol[i].Destroy();
+      Spread[i]=EMPTY_VALUE;
+     }
+
+  };
+//+------------------------------------------------------------------+
+//|        Effacer une ligne                                         |
+//+------------------------------------------------------------------+
+void CPositionSizeCalculator::deleteRow(int i)
+  {
+   
+   btnBE[i].Destroy();
+   btnClose[i].Destroy();
+   labelPrice[i].Destroy();
+   labelSymbol[i].Destroy();
+   Spread[i]=EMPTY_VALUE;
+  };
+
+//---------------Event Map------------------------------------------//
+//------------------------------------------------------------------//
+//------------------------------------------------------------------//
+
+EVENT_MAP_BEGIN(CPositionSizeCalculator)
+//ON_INDEXED_EVENT(ON_CLICK,editSymbol.m_list.m_rows,OnItemClick)
+ON_INDEXED_EVENT(ON_CLICK,btnClose,screenAction)
+ON_EVENT(ON_CLICK,buy,BuyClick)
+ON_EVENT(ON_CLICK,sell,SellClick)
+ON_EVENT(ON_CLICK,close,CloseClick)
+ON_OTHER_EVENTS(ON_CHANGE,editSymbol,OnChangeComboBox)
+ON_EVENT(ON_CLICK,closeAll,CloseAllClick)
+ON_EXTERNAL_EVENT(CHARTEVENT_OBJECT_CLICK,change)
+EVENT_MAP_END(CAppDialog)
+
+//---------------Event Map--------------------------------------------------//
+
+//+------------------------------------------------------------------+
+//|           FONCTION  ID EVENT                                     |
+//+------------------------------------------------------------------+
+void CPositionSizeCalculator::OnChangeComboBox(int lpa)
+   {
+      ChartSetSymbolPeriod(0,editSymbol.Select(),_Period);      
+   }   
+     
+bool CPositionSizeCalculator::screenAction(int i,string h)
+  {
+
+//--------------------------------------Bouton close-----------------//
+//------------------------------------------------------------------//
+//Print(i,"   ",h);
+   if(h[(StringLen(h)-StringLen(IntegerToString(i))-3)]=='b')
+     {
+
+      OrderSelect(i,SELECT_BY_POS,MODE_TRADES);
+
+      if(OrderClose(OrderTicket(),OrderLots(),OrderClosePrice(),0,clrNONE))
+        {
+         deleteRow(i);
+        }
+     }
+//--------------------------------------Bouton Breakeven---------------------------------------------//
+//------------------------------------------------------------------//
+   
+   else if(h[(StringLen(h)-StringLen(IntegerToString(i))-5)]=='b')
+        {
+            OrderSelect(i,SELECT_BY_TICKET,MODE_TRADES);
+            
+       
+            if(btnBE[i].ColorBackground()==clrBlack)
+            {
+               btnBE[i].ColorBackground(clrYellow);
+            }
+            
+            else if(btnBE[i].ColorBackground()==clrYellow)
+            {
+               btnBE[i].ColorBackground(clrBlack);
+            }
+            
+            else if(btnBE[i].ColorBackground()==clrGreen)
+            {
+               if(OrderModify(OrderTicket(),0,0,0,0,clrNONE))
+               {
+                  btnBE[i].ColorBackground(clrBlack);
+               }
+               
+        
+            }
+    
+        }
+  return true;
+  }
+//+------------------------------------------------------------------+
+//|           FONCTION  Change timeframe with label                  |
+//+------------------------------------------------------------------+
+
+bool CPositionSizeCalculator::change(int lp,int dp,string sp)
+  {
+
+   if(StringFind(sp,"tf",0)!=-1)
+     {
+      int chiffre=0;
+      string tf=StringSubstr(sp,StringFind(sp,"tf",0)+2,StringLen(sp));
+
+      if(tf=="m1")
+        {
+         chiffre=1;
+         ChartSetSymbolPeriod(0,_Symbol,chiffre);
+        }
+      else
+         if(tf=="m5")
+           {
+            chiffre=5;
+            ChartSetSymbolPeriod(0,_Symbol,chiffre);
+           }
+         else
+            if(tf=="m15")
+              {
+               chiffre=15;
+               ChartSetSymbolPeriod(0,_Symbol,chiffre);
+              }
+            else
+               if(tf=="h1")
+                 {
+                  chiffre=60;
+                  ChartSetSymbolPeriod(0,_Symbol,chiffre);
+                 }
+               else
+                  if(tf=="h4")
+                    {
+                     chiffre=240;
+                     ChartSetSymbolPeriod(0,_Symbol,chiffre);
+                    }
+                  else
+                     if(tf=="d")
+                       {
+                        chiffre=1440;
+                        ChartSetSymbolPeriod(0,_Symbol,chiffre);
+                       }
+                     else
+                        if(tf=="w")
+                          {
+                           chiffre=10080;
+                           ChartSetSymbolPeriod(0,_Symbol,chiffre);
+                          }
+                        else
+                           if(tf=="m")
+                             {
+                              chiffre=43200;
+                              ChartSetSymbolPeriod(0,_Symbol,chiffre);
+                             }
+     }
+     
+     
+//------------------------------------------Change selon Symbol---------------------------------------//    
+   else if(StringFind(sp,"symb",0)!=-1)
+     {
+      string symbol=StringSubstr(sp,StringFind(sp,"symb",0)+4,StringLen(sp));
+      ChartSetSymbolPeriod(0,symbol,_Period);
+      
+     }
+     
+//-------------------------------------Change avec les boutons vol-----------------------------------// 
+   else if((StringFind(sp,"volplus",0)||StringFind(sp,"volmoins",0))!=-1)
+     {
+         if(vol_min_symbol==0.01)
+         {
+       
+            if(StringFind(sp,"volplus",0)!=-1 )
+            {  
+               vol_one+=0.01;labelvol.Text(DoubleToString(vol_one,2)); 
+            }
+            else if(StringFind(sp,"volmoins",0)!=-1 && vol_one>0.01)
+            {
+               vol_one-=0.01;labelvol.Text(DoubleToString(vol_one,2));   
+            }
+         }
+         else if(vol_min_symbol==0.10)
+         {
+      
+            if(StringFind(sp,"volplus",0)!=-1 )
+            {  
+               vol_two+=0.10;labelvol.Text(DoubleToString(vol_two,2)); 
+            }
+            else if(StringFind(sp,"volmoins",0)!=-1 && vol_two>0.15)
+            {
+               vol_two-=0.10;labelvol.Text(DoubleToString(vol_two,2));   
+            }
+         }    
+     }
+     
+   return true;
+  }
+//+-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
+//|                                                                                                                                                                                           |
+//|                         FONCTION MAIN EXPERT                                                                                                                                              |
+//|                                                                                                                                                                                           |
+//|                                                                                                                                                                                           |
+//+-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
+datetime prevTimeCurrent=TimeCurrent();
+bool infoMarket;
+int totalOrders = OrdersTotal();
+bool last_loaded=false;
+CPositionSizeCalculator ExtDialog;
+input double BreakEven=1;
+//+------------------------------------------------------------------+
+//| Expert initialization function                                   |
+//+------------------------------------------------------------------+
+int OnInit()
+  {   
+         
+         ExtDialog.be=BreakEven;
+         if(SymbolInfoDouble(_Symbol,SYMBOL_VOLUME_MIN)==0.01)
+         {
+            ExtDialog.labelvol.Text(DoubleToStr(0.01,2));
+            ExtDialog.vol_min_symbol=0.01;
+            ExtDialog.vol_one=0.01;}
+         else 
+         {
+            ExtDialog.labelvol.Text(DoubleToString(0.10,2));
+            ExtDialog.vol_min_symbol=0.10;
+            ExtDialog.vol_two=0.10;
+         };
+          
+   if(!last_loaded)
+     {
+         ArrayResize(ExtDialog.arraySymbol,SymbolsTotal(true));
+      
+         for(int i=0;i<SymbolsTotal(true);i++)
+         { 
+            ExtDialog.arraySymbol[i]=SymbolName(i,true);
+         };
+            
+         ObjectsDeleteAll(0,0,-1);
+         if(!ExtDialog.Create(0," Panel Trade Scalping",0,ChartGetInteger(0,CHART_WIDTH_IN_PIXELS,0)-430,0))return INIT_FAILED;
+         
+            ExtDialog.Run();
+            ExtDialog.deleteAllrow();
+            ExtDialog.setAffichageTrade();
+     };
+     
+   if(!EventSetMillisecondTimer(100))
+      Print("Error setting timer: ", GetLastError());
+      
+   return(INIT_SUCCEEDED);
+  }
+//+------------------------------------------------------------------+
+//| Expert deinitialization function                                 |
+//+------------------------------------------------------------------+
+void OnDeinit(const int reason)
+  {
+   if(reason!=REASON_CHARTCHANGE)
+     {
+      ObjectsDeleteAll(0,0,-1);
+      ExtDialog.Destroy();
+      EventKillTimer();
+      delete &ExtDialog;
+      last_loaded=false;
+     }
+   else
+      last_loaded=true;
+  }
+
+//+------------------------------------------------------------------+
+//| Expert tick function                                             |
+//+------------------------------------------------------------------+
+void OnTick()
+  {
+   ExtDialog.OnTick();
+    
+  }
+//+------------------------------------------------------------------+
+//| Expert tick function                                             |
+//+------------------------------------------------------------------+
+void OnTimer()
+  { 
+
+
+
+ ExtDialog.Caption(periodtotimeframe(_Period)+"   "+"Scalping"+"  "+ _Symbol +"   "+AccountInfoDouble(ACCOUNT_BALANCE)+" €"+"      "+TimeToString(TimeLocal(),TIME_MINUTES));
+   ExtDialog.OnTimer();
+   if(totalOrders != OrdersTotal())
+     {
+      ExtDialog.deleteAllrow();
+      ExtDialog.setAffichageTrade();
+      totalOrders = OrdersTotal();
+     }     
+
+  }
+//+------------------------------------------------------------------+
+//| ChartEvent function                                              |
+//+------------------------------------------------------------------+
+void OnChartEvent(const int id,
+                  const long &lparam,
+                  const double &dparam,
+                  const string &sparam)
+  {
+   ExtDialog.OnEvent(id, lparam, dparam, sparam);
+   
+  }
+//+------------------------------------------------------------------+
+
+string periodtotimeframe(int period)
+{
+string TimeFrameStr="";
+     switch(period)
+     {
+      case 1 : TimeFrameStr="M1"; break;
+      case 5 : TimeFrameStr="M5"; break;
+      case 15 : TimeFrameStr="M15"; break;
+      case 30 : TimeFrameStr="M30"; break;
+      case 60 : TimeFrameStr="H1"; break;
+      case 240 : TimeFrameStr="H4"; break;
+      case 1440 : TimeFrameStr="D1"; break;
+      case 10080 : TimeFrameStr="W1"; break;
+      case 43200 : TimeFrameStr="MN1"; break;
+      default : TimeFrameStr="Current Timeframe";
+      
+      
+     }
+  
+ return TimeFrameStr; 
+}
