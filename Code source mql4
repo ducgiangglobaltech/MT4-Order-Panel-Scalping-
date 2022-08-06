@@ -29,7 +29,7 @@ private:
 
    
    CButton                     buy,sell,close,btresize,volMoins,volPlus,beplus,bemoins,closeAll;                
-   CLabel                      spread,profitDaily,profitTotal,test,result,nbvol,label_be,m1,m5,m15,h1,h4,d,w,m;                
+   CLabel                      spread,profitDaily,profitTotal,test,result,nbvol,label_be,m1,m5,m15,h1,h4,d,w,m,*pointerColor;                
     
    double                      arrayColor[][1];                   
    CBmpButton                  *btnClose[];
@@ -705,13 +705,17 @@ bool CPositionSizeCalculator::screenAction(int i,string h)
         }
   return true;
   }
+  
+
 //+------------------------------------------------------------------+
 //|           FONCTION  Change timeframe with label                  |
 //+------------------------------------------------------------------+
 
 bool CPositionSizeCalculator::change(int lp,int dp,string sp)
   {
-
+  color c=clrDeepSkyBlue;
+  m1.Color(Black);m5.Color(Black);m15.Color(Black);h1.Color(Black);h4.Color(Black);d.Color(Black);w.Color(Black);m.Color(Black);
+  pointerColor=new CLabel;
    if(StringFind(sp,"tf",0)!=-1)
      {
       int chiffre=0;
@@ -719,48 +723,58 @@ bool CPositionSizeCalculator::change(int lp,int dp,string sp)
 
       if(tf=="m1")
         {
-         chiffre=1;
+       
+         chiffre=1; 
+         
+         m1.Color(c);
+         
          ChartSetSymbolPeriod(0,_Symbol,chiffre);
         }
-      else
-         if(tf=="m5")
+      else if(tf=="m5")
            {
+            m5.Color(c);
             chiffre=5;
             ChartSetSymbolPeriod(0,_Symbol,chiffre);
            }
-         else
-            if(tf=="m15")
+         else if(tf=="m15")
+            
               {
+               m15.Color(c);
                chiffre=15;
                ChartSetSymbolPeriod(0,_Symbol,chiffre);
               }
-            else
-               if(tf=="h1")
+            else if(tf=="h1")
+               
                  {
+                  h1.Color(c);
                   chiffre=60;
                   ChartSetSymbolPeriod(0,_Symbol,chiffre);
                  }
-               else
-                  if(tf=="h4")
+               else if(tf=="h4")
+                  
                     {
+                     h4.Color(c);
                      chiffre=240;
                      ChartSetSymbolPeriod(0,_Symbol,chiffre);
                     }
-                  else
-                     if(tf=="d")
+                  else if(tf=="d")
+                     
                        {
+                        d.Color(c);
                         chiffre=1440;
                         ChartSetSymbolPeriod(0,_Symbol,chiffre);
                        }
-                     else
-                        if(tf=="w")
+                     else if(tf=="w")
+                        
                           {
+                           w.Color(c);
                            chiffre=10080;
                            ChartSetSymbolPeriod(0,_Symbol,chiffre);
                           }
-                        else
-                           if(tf=="m")
+                        else if(tf=="m")
+                           
                              {
+                              m.Color(c);
                               chiffre=43200;
                               ChartSetSymbolPeriod(0,_Symbol,chiffre);
                              }
@@ -822,8 +836,7 @@ input double BreakEven=1;
 //| Expert initialization function                                   |
 //+------------------------------------------------------------------+
 int OnInit()
-  {   
-         
+  {        
          ExtDialog.be=BreakEven;
          if(SymbolInfoDouble(_Symbol,SYMBOL_VOLUME_MIN)==0.01)
          {
@@ -839,6 +852,7 @@ int OnInit()
           
    if(!last_loaded)
      {
+     
          ArrayResize(ExtDialog.arraySymbol,SymbolsTotal(true));
       
          for(int i=0;i<SymbolsTotal(true);i++)
@@ -892,7 +906,7 @@ void OnTimer()
 
 
 
- ExtDialog.Caption(periodtotimeframe(_Period)+"   "+"Scalping"+"  "+ _Symbol +"   "+AccountInfoDouble(ACCOUNT_BALANCE)+" €"+"      "+TimeToString(TimeLocal(),TIME_MINUTES));
+ ExtDialog.Caption("Scalping"+"  "+ _Symbol +"   "+AccountInfoDouble(ACCOUNT_BALANCE)+" €"+"      "+TimeToString(TimeLocal(),TIME_MINUTES));
    ExtDialog.OnTimer();
    if(totalOrders != OrdersTotal())
      {
@@ -915,24 +929,3 @@ void OnChartEvent(const int id,
   }
 //+------------------------------------------------------------------+
 
-string periodtotimeframe(int period)
-{
-string TimeFrameStr="";
-     switch(period)
-     {
-      case 1 : TimeFrameStr="M1"; break;
-      case 5 : TimeFrameStr="M5"; break;
-      case 15 : TimeFrameStr="M15"; break;
-      case 30 : TimeFrameStr="M30"; break;
-      case 60 : TimeFrameStr="H1"; break;
-      case 240 : TimeFrameStr="H4"; break;
-      case 1440 : TimeFrameStr="D1"; break;
-      case 10080 : TimeFrameStr="W1"; break;
-      case 43200 : TimeFrameStr="MN1"; break;
-      default : TimeFrameStr="Current Timeframe";
-      
-      
-     }
-  
- return TimeFrameStr; 
-}
