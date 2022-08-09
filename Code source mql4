@@ -29,9 +29,9 @@ private:
 
    
    CButton                     buy,sell,close,btresize,volMoins,volPlus,beplus,bemoins,closeAll;                
-   CLabel                      spread,profitDaily,profitTotal,test,result,nbvol,label_be,m1,m5,m15,h1,h4,d,w,m,*pointerColor;                
+   CLabel                      spread,profitDaily,profitTotal,test,result,nbvol,label_be;                
     
-   double                      arrayColor[][1];                   
+                      
    CBmpButton                  *btnClose[];
    CButton                     *btnBE[];
    CLabel                      *labelBe[],*labelPrice[],*labelSymbol[];
@@ -58,6 +58,8 @@ public:
    double            vol_min_symbol,vol_one,vol_two,be,Spread[];
    string                      arraySymbol[];
    CComboBox                   editSymbol; 
+   CLabel            m1,m5,m15,h1,h4,d,w,m;
+   long                      arrayColor[];
 private:
 
    virtual bool      ButtonCreate(CButton&    Btn, int X1, int Y1, int X2, int Y2, string Name, string Text, string Tooltip = "\n");
@@ -359,13 +361,7 @@ void CPositionSizeCalculator::RefreshValues()
 //+-------------------------------------------------------------------------------------------------+
 void CPositionSizeCalculator::OnTimer(void)
   {
-  //Print("Current",editSymbol.m_list.m_current,"   ",
-  //       "Offset",editSymbol.m_list.m_offset,"   ",
-  //       "Totalview",editSymbol.m_view_items,"   ",
-  //       "id",editSymbol.m_list.m_rows[2].m_id,"   ",
-  //       "id",editSymbol.m_list.m_rows[2].m_name
-  //       );
-  
+
     if(OrdersTotal()>0 )
    {
         for(int i=0;i<ArraySize(btnBE);i++)
@@ -379,6 +375,11 @@ void CPositionSizeCalculator::OnTimer(void)
             if(OrderModify(OrderTicket(),0,OrderOpenPrice(),0,0,clrNONE))
             {
                btnBE[i].ColorBackground(clrGreen);ChartRedraw();
+               ArraySort(arrayColor,WHOLE_ARRAY,0,MODE_ASCEND);
+               int y=ArrayBsearch(arrayColor,OrderTicket(),WHOLE_ARRAY,0,MODE_ASCEND);
+               arrayColor[y]=0;
+               ArraySort(arrayColor,WHOLE_ARRAY,0,MODE_DESCEND);
+               ArrayResize(arrayColor,ArraySize(arrayColor)-1);
             }         
          }  
       }   
@@ -487,7 +488,7 @@ string CPositionSizeCalculator::getTradeResult()
 
 bool CPositionSizeCalculator::BuyClick()
    {
-      if(!OrderSend(_Symbol,OP_BUY,StringToDouble(labelvol.Text()),SymbolInfoDouble(_Symbol,SYMBOL_BID),0.2,0,0,NULL,0,0,clrNONE))
+      if(OrderSend(_Symbol,OP_BUY,StringToDouble(labelvol.Text()),SymbolInfoDouble(_Symbol,SYMBOL_BID),0.2,0,0,NULL,0,0,clrNONE)==-1)
       {
          return false;
       }
@@ -502,7 +503,7 @@ bool CPositionSizeCalculator::BuyClick()
 
 bool CPositionSizeCalculator::SellClick()
    {
-      if(!OrderSend(_Symbol,OP_SELL,StringToDouble(labelvol.Text()),SymbolInfoDouble(_Symbol,SYMBOL_ASK),0.2,0,0,NULL,0,0,clrNONE))
+      if(OrderSend(_Symbol,OP_SELL,StringToDouble(labelvol.Text()),SymbolInfoDouble(_Symbol,SYMBOL_ASK),0.2,0,0,NULL,0,0,clrNONE)==-1)
       {
          return false;
       }
@@ -528,6 +529,15 @@ bool CPositionSizeCalculator::CloseClick()
          {
             if(OrderClose(OrderTicket(),OrderLots(),OrderClosePrice(),0,clrNONE))
             {
+               if(btnBE[i].ColorBackground()==clrYellow)
+               {
+            
+                  ArraySort(arrayColor,WHOLE_ARRAY,0,MODE_ASCEND);
+                  int y=ArrayBsearch(arrayColor,OrderTicket(),WHOLE_ARRAY,0,MODE_ASCEND);
+                  arrayColor[y]=0;
+                  ArraySort(arrayColor,WHOLE_ARRAY,0,MODE_DESCEND);
+                  ArrayResize(arrayColor,ArraySize(arrayColor)-1);
+               }  
                deleteRow(i);
             }          
          }
@@ -544,9 +554,23 @@ bool CPositionSizeCalculator::CloseAllClick()
 
    for(int i=total; i>=0; i--)
       {
-         OrderSelect(i,SELECT_BY_POS,MODE_TRADES);      
-         OrderClose(OrderTicket(),OrderLots(),OrderClosePrice(),0,clrNONE);             
+         OrderSelect(i,SELECT_BY_POS,MODE_TRADES);
+         if(OrderClose(OrderTicket(),OrderLots(),OrderClosePrice(),0,clrNONE)!=-1)
+         {
+            if(i<ArraySize(arrayColor) &&  btnBE[i].ColorBackground()==clrYellow )
+            {
+                  
+                  ArraySort(arrayColor,WHOLE_ARRAY,0,MODE_ASCEND);
+                  int y=ArrayBsearch(arrayColor,OrderTicket(),WHOLE_ARRAY,0,MODE_ASCEND);
+                  arrayColor[y]=0;
+                  ArraySort(arrayColor,WHOLE_ARRAY,0,MODE_DESCEND);
+                  ArrayResize(arrayColor,ArraySize(arrayColor)-1);
+            }  
+ 
+        }          
       }
+      
+      
   return true;
   } 
 //+------------------------------------------------------------------+
@@ -561,7 +585,7 @@ bool CPositionSizeCalculator::setAffichageTrade()
       ArrayResize(labelSymbol,OrdersTotal());
       ArrayResize(labelPrice,OrdersTotal());
       ArrayResize(Spread,OrdersTotal());
-      ArrayResize(arrayColor,OrdersTotal());
+      
       
       for(int i=0; i<OrdersTotal(); i++)
       {
@@ -571,7 +595,8 @@ bool CPositionSizeCalculator::setAffichageTrade()
          Spread[i]=MathAbs(SymbolInfoDouble(OrderSymbol(),SYMBOL_ASK)-SymbolInfoDouble(OrderSymbol(),SYMBOL_BID));
          string h="";
       
-      
+         int y=ArrayBsearch(arrayColor,OrderTicket(),WHOLE_ARRAY,0,MODE_ASCEND);
+        
          btnClose[i]=new CBmpButton;
          labelPrice[i]=new CLabel;
          btnBE[i]=new CButton;
@@ -588,13 +613,19 @@ bool CPositionSizeCalculator::setAffichageTrade()
          btnBE[i].Id(i);
          
          if(((OrderStopLoss()>=OrderOpenPrice())&&OrderType()==ORDER_TYPE_BUY)||((OrderStopLoss()>=OrderOpenPrice())&&OrderType()==ORDER_TYPE_SELL))
-            {
+         {
                btnBE[i].ColorBackground(clrGreen);
-            }
+         }
+         else if(y!=-1 && arrayColor[y]==OrderTicket())
+         {
+            btnBE[i].ColorBackground(clrYellow);
+         }
          else
-            {
-            btnBE[i].ColorBackground(Black);
-            };
+         {
+            btnBE[i].ColorBackground(clrBlack);
+         }
+           
+         
          
          if(!ButtonBpmCreate(btnClose[i],220,204+30*i,230,220+30*i,"bmp"+i,"",""))return false;      
          btnClose[i].Id(i);
@@ -611,12 +642,16 @@ void CPositionSizeCalculator::deleteAllrow()
   {
 
    for(int i=0; i<ArraySize(labelPrice); i++)
-     {
+    { 
+     
+         OrderSelect(i,SELECT_BY_POS,MODE_TRADES);
+         
       btnBE[i].Destroy();
       btnClose[i].Destroy();
       labelPrice[i].Destroy();
       labelSymbol[i].Destroy();
       Spread[i]=EMPTY_VALUE;
+      
      }
 
   };
@@ -625,12 +660,13 @@ void CPositionSizeCalculator::deleteAllrow()
 //+------------------------------------------------------------------+
 void CPositionSizeCalculator::deleteRow(int i)
   {
-   
+
    btnBE[i].Destroy();
    btnClose[i].Destroy();
    labelPrice[i].Destroy();
    labelSymbol[i].Destroy();
    Spread[i]=EMPTY_VALUE;
+
   };
 
 //---------------Event Map------------------------------------------//
@@ -638,7 +674,6 @@ void CPositionSizeCalculator::deleteRow(int i)
 //------------------------------------------------------------------//
 
 EVENT_MAP_BEGIN(CPositionSizeCalculator)
-//ON_INDEXED_EVENT(ON_CLICK,editSymbol.m_list.m_rows,OnItemClick)
 ON_INDEXED_EVENT(ON_CLICK,btnClose,screenAction)
 ON_EVENT(ON_CLICK,buy,BuyClick)
 ON_EVENT(ON_CLICK,sell,SellClick)
@@ -666,12 +701,22 @@ bool CPositionSizeCalculator::screenAction(int i,string h)
 //Print(i,"   ",h);
    if(h[(StringLen(h)-StringLen(IntegerToString(i))-3)]=='b')
      {
-
-      OrderSelect(i,SELECT_BY_POS,MODE_TRADES);
-
-      if(OrderClose(OrderTicket(),OrderLots(),OrderClosePrice(),0,clrNONE))
+OrderSelect(i,SELECT_BY_POS,MODE_TRADES);
+      
+        
+      if(OrderClose(OrderTicket(),OrderLots(),OrderClosePrice(),0,clrNONE)!=-1)
         {
+        
+         if(btnBE[i].ColorBackground()==clrYellow )
+         {
+               ArraySort(arrayColor,WHOLE_ARRAY,0,MODE_ASCEND);
+               int y=ArrayBsearch(arrayColor,OrderTicket(),WHOLE_ARRAY,0,MODE_ASCEND);
+               arrayColor[y]=0;
+               ArraySort(arrayColor,WHOLE_ARRAY,0,MODE_DESCEND);
+               ArrayResize(arrayColor,ArraySize(arrayColor)-1);
+         }
          deleteRow(i);
+         
         }
      }
 //--------------------------------------Bouton Breakeven---------------------------------------------//
@@ -679,24 +724,44 @@ bool CPositionSizeCalculator::screenAction(int i,string h)
    
    else if(h[(StringLen(h)-StringLen(IntegerToString(i))-5)]=='b')
         {
-            OrderSelect(i,SELECT_BY_TICKET,MODE_TRADES);
+            OrderSelect(i,SELECT_BY_POS,MODE_TRADES);
             
        
             if(btnBE[i].ColorBackground()==clrBlack)
             {
                btnBE[i].ColorBackground(clrYellow);
+               ArrayResize(arrayColor,ArraySize(arrayColor)+1);
+               arrayColor[ArraySize(arrayColor)-1]=OrderTicket();
+
+                             
+                     for(i=0;i<ArraySize(arrayColor);i++)
+               {
+                  PrintFormat("a[%i]=%i",i,arrayColor[i]);
+               }  
             }
             
             else if(btnBE[i].ColorBackground()==clrYellow)
-            {
+            {               
+               
+ 
                btnBE[i].ColorBackground(clrBlack);
+               ArraySort(arrayColor,WHOLE_ARRAY,0,MODE_ASCEND);
+               int y=ArrayBsearch(arrayColor,OrderTicket(),WHOLE_ARRAY,0,MODE_ASCEND);
+               arrayColor[y]=0;
+               ArraySort(arrayColor,WHOLE_ARRAY,0,MODE_DESCEND);
+               ArrayResize(arrayColor,ArraySize(arrayColor)-1);
+      
+
             }
             
             else if(btnBE[i].ColorBackground()==clrGreen)
             {
-               if(OrderModify(OrderTicket(),0,0,0,0,clrNONE))
+               if(OrderModify(OrderTicket(),0,0,0,0,clrNONE)!=-1)
                {
                   btnBE[i].ColorBackground(clrBlack);
+                  //ArraySort(arrayColor,WHOLE_ARRAY,0,MODE_DESCEND);
+                  //int y=ArrayBsearch(arrayColor,OrderTicket(),WHOLE_ARRAY,0,MODE_ASCEND);
+                  //arrayColor[y]=0;ArrayResize(arrayColor,ArraySize(arrayColor)-1);
                }
                
         
@@ -837,9 +902,9 @@ input double BreakEven=1;
 //+------------------------------------------------------------------+
 int OnInit()
   {        
-         ExtDialog.be=BreakEven;
+                ExtDialog.be=BreakEven;
          if(SymbolInfoDouble(_Symbol,SYMBOL_VOLUME_MIN)==0.01)
-         {
+         {  
             ExtDialog.labelvol.Text(DoubleToStr(0.01,2));
             ExtDialog.vol_min_symbol=0.01;
             ExtDialog.vol_one=0.01;}
@@ -849,10 +914,12 @@ int OnInit()
             ExtDialog.vol_min_symbol=0.10;
             ExtDialog.vol_two=0.10;
          };
+      
+
           
    if(!last_loaded)
      {
-     
+         //ArrayInitialize(ExtDialog.arrayColor,EMPTY_VALUE);
          ArrayResize(ExtDialog.arraySymbol,SymbolsTotal(true));
       
          for(int i=0;i<SymbolsTotal(true);i++)
@@ -867,7 +934,7 @@ int OnInit()
             ExtDialog.deleteAllrow();
             ExtDialog.setAffichageTrade();
      };
-     
+
    if(!EventSetMillisecondTimer(100))
       Print("Error setting timer: ", GetLastError());
       
@@ -910,6 +977,9 @@ void OnTimer()
    ExtDialog.OnTimer();
    if(totalOrders != OrdersTotal())
      {
+              
+ 
+            
       ExtDialog.deleteAllrow();
       ExtDialog.setAffichageTrade();
       totalOrders = OrdersTotal();
