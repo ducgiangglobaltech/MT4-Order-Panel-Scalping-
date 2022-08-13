@@ -19,6 +19,8 @@
 #resource  "\\Include\\Controls\\res\\RadioButtonOn.bmp"
 #include <Controls\ComboBox.mqh>
 #include <Controls\Edit.mqh>
+#property show_inputs
+
 
 //+------------------------------------------------------------------+
 //|                                                                  |
@@ -44,6 +46,7 @@ public:
    CLabel            m1,m5,m15,h1,h4,d,w,m,labelvol;
    long              arrayColor[],arrayTpBe[],arraySlBe[];
    bool              click;
+   CLabel            symb[];
 
 public:
                      CPositionSizeCalculator() {};
@@ -200,6 +203,8 @@ bool CPositionSizeCalculator::Create(const long chart, const string name, const 
 
 bool CPositionSizeCalculator::CreateObjects()
   {
+  
+  
 //---------------Ajout du Label Spread---------------------------------------------------//
    double spd="";
    Digits==5 ?  spd = MarketInfo(_Symbol, MODE_SPREAD)/10 :  spd = MarketInfo(_Symbol, MODE_SPREAD)/100;
@@ -210,18 +215,18 @@ bool CPositionSizeCalculator::CreateObjects()
    GetClosedPnlOfDay(0)>0 ? profitDaily.Color(Green) : profitDaily.Color(Red);
    if(!LabelCreate(profitDaily,20,40,80,50,"profitDaily","Gain du jour : "+gain+" €"))
       return false;   
-//---------------Ajout ComboBox liste de Symbol---------------------------------------------------//
-   if(!ComboBoxCreate(editSymbol,300,210,400,230,"editSymbol","",""))
-      return false; 
-  
-     
-      for(int i=0;i<ArraySize(arraySymbol);i++)
-      {
-        editSymbol.ItemAdd(arraySymbol[i],i);
-        
-      }
-      
-      editSymbol.Select(0);
+////---------------Ajout ComboBox liste de Symbol---------------------------------------------------//
+//   if(!ComboBoxCreate(editSymbol,300,210,400,230,"editSymbol","",""))
+//      return false; 
+//  
+//     
+//      for(int i=0;i<ArraySize(arraySymbol);i++)
+//      {
+//        editSymbol.ItemAdd(arraySymbol[i],i);
+//        
+//      }
+//      
+//      editSymbol.Select(0);
 //---------------Ajout du Label Result---------------------------------------------------//
    if(!LabelCreate(result,20,60,80,80,"result",GetTradeResult()))
       return false;
@@ -285,9 +290,13 @@ int x1=170,x2=190;
 
    if(!LabelCreate(nbvol,180,170,80,250,"nbvol","",""))
       return false;
- 
    nbvol.FontSize(8);
    ChartRedraw();
+   
+//---------------Ajout du Labels Symbol---------------------------------------------------//
+string symbol[]={"[SP500]","[NQ100]","[DJI30]","[DAX40]","[CAC40]","[JP225]","EURUSD","GBPUSD","USDJPY","USDCHF","GOLD","BRENT","SILVER"};
+ArrayResize(symb,ArraySize(symbol));
+for(int i=0;i<ArraySize(symbol);i++){symb[i]=new CLabel;LabelCreate(symb[i],300,200+18*i,80,220+18*i,"symb"+symbol[i],symbol[i],"");}
    return true;
   }
 //+-----------------------------------------------------------------------------------------------------+
@@ -976,6 +985,7 @@ bool CPositionSizeCalculator::Change(int lp,int dp,string sp)
       ChartSetSymbolPeriod(0,symbol,_Period);
       
      }
+   
      
 //-------------------------------------Change avec les boutons vol-----------------------------------// 
    else if((StringFind(sp,"volplus",0)||StringFind(sp,"volmoins",0)))
@@ -1017,18 +1027,18 @@ bool CPositionSizeCalculator::Change(int lp,int dp,string sp)
 //+-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
 
 datetime prevTimeCurrent=TimeCurrent();
-bool infoMarket;
+
 int totalOrders = OrdersTotal();
 bool last_loaded=false;
 CPositionSizeCalculator ExtDialog;
-input double BreakEven=1;
+
 
 //+------------------------------------------------------------------+
 //| Expert initialization function                                   |
 //+------------------------------------------------------------------+
 int OnInit()
   {        
-   ExtDialog.be=BreakEven;
+   
    if(SymbolInfoDouble(_Symbol,SYMBOL_VOLUME_MIN)==0.01)
    {  
       ExtDialog.labelvol.Text(DoubleToStr(0.01,2));
@@ -1083,8 +1093,8 @@ void OnDeinit(const int reason)
    {
       last_loaded=true;
    }
-      
-}
+    
+ }
 
 //+------------------------------------------------------------------+
 //| Expert tick function                                             |
@@ -1144,7 +1154,7 @@ void OnChartEvent(const int id,
                   const string &sparam)
   {
    ExtDialog.OnEvent(id, lparam, dparam, sparam);
-   
+   Print(sparam);
   }
 //+------------------------------------------------------------------+
 
